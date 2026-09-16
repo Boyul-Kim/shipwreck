@@ -1,7 +1,7 @@
 package main
 
 import (
-	"shipwreck/menu"
+	"shipwreck/internal/menu"
 )
 
 func main() {

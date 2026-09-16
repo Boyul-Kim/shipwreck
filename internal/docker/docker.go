@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"shipwreck/dial"
+	"shipwreck/internal/dial"
 	"strings"
 	"text/tabwriter"
 	"time"

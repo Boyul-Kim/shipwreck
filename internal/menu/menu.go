@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"shipwreck/docker"
+	"shipwreck/internal/docker"
 	"strings"
 )
 
