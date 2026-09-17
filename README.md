@@ -23,6 +23,8 @@
 
 A lightweight, zero-dependency chaos engineering tool for local Docker environments, using only the Docker Engine API.
 
+NOTE: IN ACTIVE DEVELOPMEN
+
 ## Getting started
 
 ### Requirements
