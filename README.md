@@ -21,11 +21,52 @@
 
 # shipwreck
 
-A lightweight, zero-dependency chaos engineering tool for local Docker environments, using only the Docker Engine API.
+A zero-dependency test harness for the failure paths your integration tests never
+execute. shipwreck injects faults into the Docker containers your application
+depends on, so you find the missing timeout on your laptop instead of in an
+incident review.
 
-NOTE: IN ACTIVE DEVELOPMENT
+> **Status: in active development.** Container discovery and the interactive
+> navigation work today. Fault injection is not implemented yet — see
+> [Roadmap](#roadmap) for the order things are landing in.
+>
+> AI use: AI helped with this documentation and the `internal/term` package.
+> Everything else was written by hand.
 
-AI Use: AI was used in helping with making the documentation as well as the /term folder. Other sections were manually coded.
+## Why
+
+Trying to fill a gap between unit tests and integration tests.
+
+That branch is where the bugs live:
+
+- retries with no backoff or jitter, or retries on a write that isn't idempotent
+- connection pools exhausted when a dependency is **slow** rather than down,
+  which never happens locally because locally everything is sub-millisecond
+- error branches that have never once executed, so they carry their own nil
+  dereferences
+- "the database is up when I start" assumptions, which survive until the first
+  change in startup order
+- liveness probes that return `200` while the thing behind them is dead, so the
+  orchestrator never restarts anything
+- `SIGTERM` handlers that were never exercised, because you always hit Ctrl-C
+
+Every one of those is deterministic given a single fault and a single request. shipwreck exists to make that path cheap enough to test that you actually test it.
+
+## What this is not
+
+shipwreck is a **pre-production** tool.
+
+Failures that emerge from scale — retry storms, cascading saturation, capacity
+cliffs, split-brain under a partial partition — need real traffic and real
+topology to reproduce. A laptop cannot find them, and shipwreck does not claim to.
+Those belong to production chaos engineering, with the blast-radius controls that
+implies.
+
+shipwreck covers the other half: single-request failure modes that reproduce
+against one container on one machine, and that go untested today because the
+tooling for them assumes a cluster, a platform team, and a budget.
+
+Coverage for the error path, not a miniature of production.
 
 ## Getting started
 
@@ -97,10 +138,10 @@ make release      # release binaries for every platform -> dist/
 make clean        # remove bin/, dist/, coverage.out
 ```
 
-
 ```text
 cmd/shipwreck_cli/    main package — the CLI entry point
 internal/menu/        interactive menu loop
 internal/docker/      Docker Engine API client and table rendering
+internal/term/        arrow-key picker and raw terminal mode (unix / windows variants)
 internal/dial/        socket discovery and dialing (unix / windows variants)
 ```
