@@ -1,3 +1,4 @@
+```text
                    |\
                    | \__
                    |    \_
@@ -15,7 +16,9 @@
   ~~~~~~~~~~~~~\/~~~~~~~~~~~~~~~~~~            \________________\_/
        ~~~~~           ~~~~~          ~~~~~~~~~~~~       ~~~~~   \
                             ~~~~             ~~~~~                \___
-                                                                   \__
+                                                                   \__\
+```
 
 # shipwreck
-Lightweight and zero-dependency chaos engineering tool for local Docker environments using only the Docker Engine API
+
+A lightweight, zero-dependency chaos engineering tool for local Docker environments, using only the Docker Engine API.
