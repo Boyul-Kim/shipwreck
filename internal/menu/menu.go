@@ -2,10 +2,11 @@ package menu
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"shipwreck/internal/docker"
-	"strings"
+	"shipwreck/internal/term"
 )
 
 type MenuOption[A int, B string] struct {
@@ -14,39 +15,57 @@ type MenuOption[A int, B string] struct {
 }
 
 func Menu() {
-	fmt.Println(banner)
+	fmt.Print(banner)
+
 	reader := bufio.NewReader(os.Stdin)
-	menuOptions := loadMenuOptions()
+	choices := loadMenuChoices()
+
+	const hint = "up/down to move, Enter to select, q to abandon ship"
 
 	for {
-		fmt.Println(title)
-		for _, option := range menuOptions {
-			fmt.Printf("%v: %v\n", option.Number, option.Value)
-		}
-		fmt.Println("~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~\n")
-
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading input:", err)
+		picked, err := term.Select(reader, "\n"+title+"\n"+hint, choices)
+		if errors.Is(err, term.ErrBack) {
 			continue
 		}
 
-		input = strings.TrimSpace(input)
+		if errors.Is(err, term.ErrCancelled) {
+			abandonShip()
+			return
+		}
 
-		switch input {
-		case "1":
-			fmt.Println("\nFetching containers...\n")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "shipwreck:", err)
+			continue
+		}
+
+		switch picked {
+		case 1:
+			fmt.Print("\nFetching containers...\n\n")
 			if err := docker.Run(); err != nil {
 				fmt.Fprintln(os.Stderr, "shipwreck:", err)
 			}
-		case "2":
-			fmt.Println("\nPaddling away!")
-			fmt.Println(exit)
+
+		case 2:
+			abandonShip()
 			return
-		default:
-			fmt.Println("\n[!]Invalid choice")
 		}
 	}
+}
+
+func abandonShip() {
+	fmt.Println("\nPaddling away!")
+	fmt.Print(exit)
+}
+
+func loadMenuChoices() []term.Choice[int] {
+	options := loadMenuOptions()
+
+	choices := make([]term.Choice[int], 0, len(options))
+	for _, o := range options {
+		choices = append(choices, term.Choice[int]{Label: string(o.Value), Value: int(o.Number)})
+	}
+
+	return choices
 }
 
 func loadMenuOptions() []MenuOption[int, string] {

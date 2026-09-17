@@ -25,6 +25,8 @@ A lightweight, zero-dependency chaos engineering tool for local Docker environme
 
 NOTE: IN ACTIVE DEVELOPMENT
 
+AI Use: AI was used in helping with making the documentation as well as the /term folder. Other sections were manually coded.
+
 ## Getting started
 
 ### Requirements

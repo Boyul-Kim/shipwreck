@@ -17,7 +17,7 @@ import (
 
 const apiVersion = "v1.41"
 
-type container struct {
+type Container struct {
 	ID     string   `json:"Id"`
 	Names  []string `json:"Names"`
 	Image  string   `json:"Image"`
@@ -25,10 +25,52 @@ type container struct {
 	Status string   `json:"Status"`
 }
 
+func (c Container) Name() string {
+	if len(c.Names) == 0 {
+		return ""
+	}
+
+	return strings.TrimPrefix(c.Names[0], "/")
+}
+
+func (c Container) ShortID() string {
+	if len(c.ID) > 12 {
+		return c.ID[:12]
+	}
+
+	return c.ID
+}
+
+func (c Container) ShortImage() string {
+	if id, ok := strings.CutPrefix(c.Image, "sha256:"); ok && len(id) > 12 {
+		return "sha256:" + id[:12]
+	}
+
+	return c.Image
+}
+
 func Run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	containers, err := List(ctx)
+	if err != nil {
+		return err
+	}
+
+	return Render(containers)
+}
+
+func List(ctx context.Context) ([]Container, error) {
+	var out []Container
+	if err := get(ctx, "/containers/json?all=1", &out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func get(ctx context.Context, path string, v any) error {
 	host := dial.DefaultHost()
 	conn, err := dial.Dial(ctx, host)
 	if err != nil {
@@ -37,46 +79,35 @@ func Run() error {
 
 	defer conn.Close()
 
-	containers, err := listContainers(ctx, conn)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker/"+apiVersion+path, nil)
 	if err != nil {
 		return err
 	}
 
-	return render(containers)
-}
-
-func listContainers(ctx context.Context, conn io.ReadWriteCloser) ([]container, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker/"+apiVersion+"/containers/json?all=1", nil)
-
-	if err != nil {
-		return nil, err
-	}
-
 	if err := req.Write(conn); err != nil {
-		return nil, fmt.Errorf("writing request: %w", err)
+		return fmt.Errorf("writing request: %w", err)
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return fmt.Errorf("reading response: %w", err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
-		return nil, fmt.Errorf("docker api: %s: %s", resp.Status, bytes.TrimSpace(msg))
+		return fmt.Errorf("docker api: %s: %s", resp.Status, bytes.TrimSpace(msg))
 	}
 
-	var out []container
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		return fmt.Errorf("decoding response: %w", err)
 	}
 
-	return out, nil
+	return nil
 }
 
-func render(containers []container) error {
+func Render(containers []Container) error {
 	if len(containers) == 0 {
 		fmt.Println("no containers")
 		return nil
@@ -85,17 +116,7 @@ func render(containers []container) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "CONTAINER ID\tIMAGE\tSTATE\tNAME")
 	for _, c := range containers {
-		var name string
-		if len(c.Names) > 0 {
-			name = strings.TrimPrefix(c.Names[0], "/")
-		}
-
-		id := c.ID
-		if len(id) > 12 {
-			id = id[:12]
-		}
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", id, c.Image, c.State, name)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.ShortID(), c.ShortImage(), c.State, c.Name())
 	}
 
 	return w.Flush()
