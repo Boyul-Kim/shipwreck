@@ -1,4 +1,3 @@
-#~^~^~^~^~^~ S H I P W R E C K ~^~^~^~^~^~
                    |\
                    | \__
                    |    \_
@@ -18,5 +17,5 @@
                             ~~~~             ~~~~~                \___
                                                                    \__
 
-#shipwreck
+# shipwreck
 Lightweight and zero-dependency chaos engineering tool for local Docker environments using only the Docker Engine API
