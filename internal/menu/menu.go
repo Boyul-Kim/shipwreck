@@ -8,14 +8,22 @@ import (
 	"strings"
 )
 
+type MenuOption[A int, B string] struct {
+	Number A
+	Value  B
+}
+
 func Menu() {
+	fmt.Println(banner)
 	reader := bufio.NewReader(os.Stdin)
+	menuOptions := loadMenuOptions()
 
 	for {
-		fmt.Println("\n=== Shipwreck ===")
-		fmt.Println("1. Get containers")
-		fmt.Println("2. Exit")
-		fmt.Println("=================\n")
+		fmt.Println(title)
+		for _, option := range menuOptions {
+			fmt.Printf("%v: %v\n", option.Number, option.Value)
+		}
+		fmt.Println("~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~\n")
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -27,15 +35,23 @@ func Menu() {
 
 		switch input {
 		case "1":
-			fmt.Println("\nFetching containers...")
+			fmt.Println("\nFetching containers...\n")
 			if err := docker.Run(); err != nil {
 				fmt.Fprintln(os.Stderr, "shipwreck:", err)
 			}
 		case "2":
-			fmt.Println("\nExiting")
+			fmt.Println("\nPaddling away!")
+			fmt.Println(exit)
 			return
 		default:
 			fmt.Println("\n[!]Invalid choice")
 		}
+	}
+}
+
+func loadMenuOptions() []MenuOption[int, string] {
+	return []MenuOption[int, string]{
+		{Number: 1, Value: "Get Containers"},
+		{Number: 2, Value: "Abandon Ship! (Exit)"},
 	}
 }
