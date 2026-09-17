@@ -26,9 +26,7 @@ execute. shipwreck injects faults into the Docker containers your application
 depends on, so you find the missing timeout on your laptop instead of in an
 incident review.
 
-> **Status: in active development.** Container discovery and the interactive
-> navigation work today. Fault injection is not implemented yet — see
-> [Roadmap](#roadmap) for the order things are landing in.
+> **Status: in active development.**
 >
 > AI use: AI helped with this documentation and the `internal/term` package.
 > Everything else was written by hand.
