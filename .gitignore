@@ -8,6 +8,10 @@
 *.so
 *.dylib
 
+# Build output (make build / make release)
+bin/
+dist/
+
 # Test binary, built with `go test -c`
 *.test
 
