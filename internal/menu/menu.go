@@ -2,11 +2,13 @@ package menu
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"shipwreck/internal/docker"
 	"shipwreck/internal/term"
+	"time"
 )
 
 type MenuOption[A int, B string] struct {
@@ -38,14 +40,28 @@ func Menu() {
 			continue
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+
 		switch picked {
 		case 1:
 			fmt.Print("\nFetching containers...\n\n")
-			if err := docker.Run(); err != nil {
+
+			out, err := docker.List(ctx)
+			if err != nil {
 				fmt.Fprintln(os.Stderr, "shipwreck:", err)
 			}
 
+			docker.Render(out)
 		case 2:
+			fmt.Print("\nSigkill for container...\n\n")
+			id := "159ca8962ba64d79a7866f2c5de18c12a8d5e22667290986edec94482368acf1"
+			if err := docker.Sigkill(ctx, id); err != nil {
+				fmt.Fprintln(os.Stderr, "shipwreck:", err)
+			}
+
+			fmt.Print("\nSigkill successful")
+		case 3:
 			abandonShip()
 			return
 		}
@@ -71,6 +87,7 @@ func loadMenuChoices() []term.Choice[int] {
 func loadMenuOptions() []MenuOption[int, string] {
 	return []MenuOption[int, string]{
 		{Number: 1, Value: "Get Containers"},
-		{Number: 2, Value: "Abandon Ship! (Exit)"},
+		{Number: 2, Value: "Sigkill Container"},
+		{Number: 3, Value: "Abandon Ship! (Exit)"},
 	}
 }

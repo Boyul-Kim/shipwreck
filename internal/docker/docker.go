@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"shipwreck/internal/dial"
 	"strings"
@@ -70,7 +71,17 @@ func List(ctx context.Context) ([]Container, error) {
 	return out, nil
 }
 
-func get(ctx context.Context, path string, v any) error {
+func Sigkill(ctx context.Context, id string) error {
+	path := "/containers/" + url.PathEscape(id) + "/kill?signal=SIGKILL"
+
+	if err := post(ctx, path, nil); err != nil {
+		return fmt.Errorf("error killing %s: %w", id, err)
+	}
+
+	return nil
+}
+
+func do(ctx context.Context, method string, path string, v any) error {
 	host := dial.DefaultHost()
 	conn, err := dial.Dial(ctx, host)
 	if err != nil {
@@ -79,7 +90,7 @@ func get(ctx context.Context, path string, v any) error {
 
 	defer conn.Close()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker/"+apiVersion+path, nil)
+	req, err := http.NewRequestWithContext(ctx, method, "http://docker/"+apiVersion+path, nil)
 	if err != nil {
 		return err
 	}
@@ -95,9 +106,16 @@ func get(ctx context.Context, path string, v any) error {
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	// A status like kill's 204 wouldn't pass a plain StatusOK check.
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
 		return fmt.Errorf("docker api: %s: %s", resp.Status, bytes.TrimSpace(msg))
+	}
+
+	// The body has to be read before the deferred conn.Close() runs, so the
+	// decode belongs here rather than in the caller.
+	if v == nil {
+		return nil
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
@@ -105,6 +123,14 @@ func get(ctx context.Context, path string, v any) error {
 	}
 
 	return nil
+}
+
+func get(ctx context.Context, path string, v any) error {
+	return do(ctx, http.MethodGet, path, v)
+}
+
+func post(ctx context.Context, path string, v any) error {
+	return do(ctx, http.MethodPost, path, v)
 }
 
 func Render(containers []Container) error {
