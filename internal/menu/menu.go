@@ -16,6 +16,8 @@ type MenuOption[A int, B string] struct {
 	Value  B
 }
 
+const timeout = 10 * time.Second
+
 func Menu() {
 	fmt.Print(banner)
 
@@ -40,32 +42,107 @@ func Menu() {
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		defer cancel()
-
 		switch picked {
 		case 1:
-			fmt.Print("\nFetching containers...\n\n")
-
-			out, err := docker.List(ctx)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "shipwreck:", err)
-			}
-
-			docker.Render(out)
+			listContainers()
 		case 2:
-			fmt.Print("\nSigkill for container...\n\n")
-			id := "159ca8962ba64d79a7866f2c5de18c12a8d5e22667290986edec94482368acf1"
-			if err := docker.Sigkill(ctx, id); err != nil {
-				fmt.Fprintln(os.Stderr, "shipwreck:", err)
-			}
-
-			fmt.Print("\nSigkill successful")
+			sigkillContainer(reader)
 		case 3:
 			abandonShip()
 			return
 		}
 	}
+}
+
+func listContainers() {
+	fmt.Print("\nFetching containers...\n\n")
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	containers, err := docker.List(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "shipwreck:", err)
+		return
+	}
+
+	if err := docker.Render(containers); err != nil {
+		fmt.Fprintln(os.Stderr, "shipwreck:", err)
+	}
+}
+
+/*
+*
+
+	Lists the containers as a picker and kills the one the user lands on. The
+	fetch and the kill get a timeout each rather than sharing one, since the
+	time spent deciding sits between them and would otherwise eat the budget.
+
+*
+*/
+func sigkillContainer(in *bufio.Reader) {
+	fmt.Print("\nFetching containers...\n")
+
+	containers, err := listForPicker()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "shipwreck:", err)
+		return
+	}
+
+	if len(containers) == 0 {
+		fmt.Print("\nno containers\n")
+		return
+	}
+
+	columns, rows := docker.Rows(containers)
+
+	choices := make([]term.Choice[docker.Container], 0, len(containers))
+	for i, c := range containers {
+		choices = append(choices, term.Choice[docker.Container]{Label: rows[i], Value: c})
+	}
+
+	const hint = "up/down to move, Enter to sigkill, b or q to go back"
+
+	// The column header is indented to line up with the unselected rows, which
+	// the picker draws behind three spaces.
+	header := "\n" + title + "\n" + hint + "\n\n   " + columns
+
+	picked, err := term.Select(in, header, choices)
+	if errors.Is(err, term.ErrBack) || errors.Is(err, term.ErrCancelled) {
+		return
+	}
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "shipwreck:", err)
+		return
+	}
+
+	fmt.Printf("\nSigkill for %s...\n", describe(picked))
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := docker.Sigkill(ctx, picked.ID); err != nil {
+		fmt.Fprintln(os.Stderr, "shipwreck:", err)
+		return
+	}
+
+	fmt.Print("\nSigkill successful\n")
+}
+
+func listForPicker() ([]docker.Container, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return docker.List(ctx)
+}
+
+func describe(c docker.Container) string {
+	if name := c.Name(); name != "" {
+		return name
+	}
+
+	return c.ShortID()
 }
 
 func abandonShip() {

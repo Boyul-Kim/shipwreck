@@ -18,6 +18,8 @@ import (
 
 const apiVersion = "v1.41"
 
+const columns = "CONTAINER ID	IMAGE	STATE	NAME"
+
 type Container struct {
 	ID     string   `json:"Id"`
 	Names  []string `json:"Names"`
@@ -140,10 +142,27 @@ func Render(containers []Container) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "CONTAINER ID\tIMAGE\tSTATE\tNAME")
+	fmt.Fprintln(w, columns)
+	writeRows(w, containers)
+
+	return w.Flush()
+}
+
+func Rows(containers []Container) (string, []string) {
+	var buf bytes.Buffer
+
+	w := tabwriter.NewWriter(&buf, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, columns)
+	writeRows(w, containers)
+	w.Flush()
+
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+
+	return lines[0], lines[1:]
+}
+
+func writeRows(w io.Writer, containers []Container) {
 	for _, c := range containers {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.ShortID(), c.ShortImage(), c.State, c.Name())
 	}
-
-	return w.Flush()
 }

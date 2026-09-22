@@ -27,9 +27,6 @@ depends on, so you find the missing timeout on your laptop instead of in an
 incident review.
 
 > **Status: in active development.**
->
-> AI use: AI helped with this documentation and the `internal/term` package.
-> Everything else was written by hand.
 
 ## Why
 
