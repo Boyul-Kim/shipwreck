@@ -77,10 +77,6 @@ func Sigkill(ctx context.Context, id string) error {
 	return kill(ctx, id, "SIGKILL")
 }
 
-// Sigterm asks the container to shut down gracefully, the same signal Docker
-// sends first on a plain `docker stop`. Unlike Stop, nothing waits for the
-// process to actually exit -- it's for watching a handler run, not for
-// tearing the container down.
 func Sigterm(ctx context.Context, id string) error {
 	return kill(ctx, id, "SIGTERM")
 }
@@ -95,15 +91,6 @@ func kill(ctx context.Context, id string, signal string) error {
 	return nil
 }
 
-/*
-*
-
-	Stop sends SIGTERM and gives the container up to timeout seconds to exit on
-	its own before Docker follows up with SIGKILL -- the drain window a
-	dependent is supposed to survive.
-
-*
-*/
 func Stop(ctx context.Context, id string, timeout int) error {
 	path := fmt.Sprintf("/containers/%s/stop?t=%d", url.PathEscape(id), timeout)
 
@@ -114,8 +101,6 @@ func Stop(ctx context.Context, id string, timeout int) error {
 	return nil
 }
 
-// Restart stops the container (the same SIGTERM-then-timeout-then-SIGKILL
-// sequence as Stop) and starts it again, simulating a bounce.
 func Restart(ctx context.Context, id string, timeout int) error {
 	path := fmt.Sprintf("/containers/%s/restart?t=%d", url.PathEscape(id), timeout)
 

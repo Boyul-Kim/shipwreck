@@ -20,9 +20,6 @@ type MenuOption[A int, B string] struct {
 
 const timeout = 10 * time.Second
 
-// defaultDrainTimeout is the fallback grace period, in seconds, between the
-// SIGTERM Docker sends first and the SIGKILL it follows up with -- for Stop
-// when the user leaves the prompt blank, and for Restart, which never asks.
 const defaultDrainTimeout = 10
 
 func Menu() {
@@ -105,9 +102,6 @@ func sigkillContainer(in *bufio.Reader) {
 	fmt.Print("\nSigkill successful\n")
 }
 
-// sigtermContainer sends SIGTERM without waiting for the process to exit, so
-// a graceful-shutdown handler can be watched running in real time rather than
-// judged only by whether the container eventually stops.
 func sigtermContainer(in *bufio.Reader) {
 	const hint = "up/down to move, Enter to send SIGTERM, b or q to go back"
 
@@ -129,16 +123,6 @@ func sigtermContainer(in *bufio.Reader) {
 	fmt.Print("\nSIGTERM sent\n")
 }
 
-/*
-*
-
-	stopContainer drains a container: SIGTERM, then up to t seconds for it to
-	exit on its own before Docker escalates to SIGKILL. t is the whole point --
-	it's the window a dependent's retry-and-backoff is supposed to survive, so
-	it comes from the user rather than a hardcoded guess.
-
-*
-*/
 func stopContainer(in *bufio.Reader) {
 	const hint = "up/down to move, Enter to stop, b or q to go back"
 
@@ -166,8 +150,6 @@ func stopContainer(in *bufio.Reader) {
 	fmt.Print("\nStop successful\n")
 }
 
-// restartContainer bounces a container -- the same drain-then-kill sequence
-// as Stop, then a start -- so dependents can be watched reconnecting.
 func restartContainer(in *bufio.Reader) {
 	const hint = "up/down to move, Enter to restart, b or q to go back"
 
@@ -189,17 +171,6 @@ func restartContainer(in *bufio.Reader) {
 	fmt.Print("\nRestart successful\n")
 }
 
-/*
-*
-
-	pickContainer fetches the container list, renders it as a picker under the
-	given hint, and returns the container the user lands on. ok is false if
-	there was nothing to pick from, the fetch failed, or the user backed out --
-	any of which the caller handles by just returning, since pickContainer has
-	already reported the problem or the user's own cancel needs no message.
-
-*
-*/
 func pickContainer(in *bufio.Reader, hint string) (docker.Container, bool) {
 	fmt.Print("\nFetching containers...\n")
 
@@ -221,8 +192,6 @@ func pickContainer(in *bufio.Reader, hint string) (docker.Container, bool) {
 		choices = append(choices, term.Choice[docker.Container]{Label: rows[i], Value: c})
 	}
 
-	// The column header is indented to line up with the unselected rows, which
-	// the picker draws behind three spaces.
 	header := "\n" + title + "\n" + hint + "\n\n   " + columns
 
 	picked, err := term.Select(in, header, choices)
@@ -245,9 +214,6 @@ func listForPicker() ([]docker.Container, error) {
 	return docker.List(ctx)
 }
 
-// promptTimeout asks for a drain timeout in seconds now that raw mode has
-// been released (term.Select restores it before returning), so a plain
-// buffered read behaves the same way the numbered-menu fallback does.
 func promptTimeout(in *bufio.Reader, def int) (int, error) {
 	fmt.Printf("\nDrain timeout in seconds (blank for %ds): ", def)
 
