@@ -1,22 +1,16 @@
 package docker
 
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
-	"shipwreck/internal/dial"
 	"strings"
 	"text/tabwriter"
 	"time"
 )
-
-const apiVersion = "v1.41"
 
 const columns = "CONTAINER ID	IMAGE	STATE	NAME"
 
@@ -84,7 +78,7 @@ func Sigterm(ctx context.Context, id string) error {
 func kill(ctx context.Context, id string, signal string) error {
 	path := "/containers/" + url.PathEscape(id) + "/kill?signal=" + signal
 
-	if err := post(ctx, path, nil); err != nil {
+	if err := post(ctx, path, nil, nil); err != nil {
 		return fmt.Errorf("error sending %s to %s: %w", signal, id, err)
 	}
 
@@ -94,7 +88,7 @@ func kill(ctx context.Context, id string, signal string) error {
 func Stop(ctx context.Context, id string, timeout int) error {
 	path := fmt.Sprintf("/containers/%s/stop?t=%d", url.PathEscape(id), timeout)
 
-	if err := post(ctx, path, nil); err != nil {
+	if err := post(ctx, path, nil, nil); err != nil {
 		return fmt.Errorf("error stopping %s: %w", id, err)
 	}
 
@@ -104,63 +98,34 @@ func Stop(ctx context.Context, id string, timeout int) error {
 func Restart(ctx context.Context, id string, timeout int) error {
 	path := fmt.Sprintf("/containers/%s/restart?t=%d", url.PathEscape(id), timeout)
 
-	if err := post(ctx, path, nil); err != nil {
+	if err := post(ctx, path, nil, nil); err != nil {
 		return fmt.Errorf("error restarting %s: %w", id, err)
 	}
 
 	return nil
 }
 
-func do(ctx context.Context, method string, path string, v any) error {
-	host := dial.DefaultHost()
-	conn, err := dial.Dial(ctx, host)
-	if err != nil {
-		return fmt.Errorf("connecting to %s: %w", host, err)
-	}
+// Pause suspends every process in the container with the cgroup freezer. Open
+// TCP connections survive, so a client sees a peer that accepts connections
+// and then never answers -- the hung dependency case.
+func Pause(ctx context.Context, id string) error {
+	path := "/containers/" + url.PathEscape(id) + "/pause"
 
-	defer conn.Close()
-
-	req, err := http.NewRequestWithContext(ctx, method, "http://docker/"+apiVersion+path, nil)
-	if err != nil {
-		return err
-	}
-
-	if err := req.Write(conn); err != nil {
-		return fmt.Errorf("writing request: %w", err)
-	}
-
-	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
-	if err != nil {
-		return fmt.Errorf("reading response: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	// A status like kill's 204 wouldn't pass a plain StatusOK check.
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
-		return fmt.Errorf("docker api: %s: %s", resp.Status, bytes.TrimSpace(msg))
-	}
-
-	// The body has to be read before the deferred conn.Close() runs, so the
-	// decode belongs here rather than in the caller.
-	if v == nil {
-		return nil
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
+	if err := post(ctx, path, nil, nil); err != nil {
+		return fmt.Errorf("error pausing %s: %w", id, err)
 	}
 
 	return nil
 }
 
-func get(ctx context.Context, path string, v any) error {
-	return do(ctx, http.MethodGet, path, v)
-}
+func Unpause(ctx context.Context, id string) error {
+	path := "/containers/" + url.PathEscape(id) + "/unpause"
 
-func post(ctx context.Context, path string, v any) error {
-	return do(ctx, http.MethodPost, path, v)
+	if err := post(ctx, path, nil, nil); err != nil {
+		return fmt.Errorf("error unpausing %s: %w", id, err)
+	}
+
+	return nil
 }
 
 func Render(containers []Container) error {
